@@ -6247,21 +6247,39 @@ class wsdl extends nusoap_base {
 		return $xml;
 	}
 
-	/**
-	 * serializes the elements for a complexType
-	 *
-	 * @param array $typeDef our internal representation of an XML schema type (or element)
-	 * @param mixed $value a native PHP value (parameter value)
-	 * @param string $ns the namespace of the type
-	 * @param string $uqType the local part of the type
-	 * @param string $use use for part (encoded|literal)
-	 * @param string $encodingStyle SOAP encoding style for the value (if different than the enclosing style)
-	 * @return string value serialized as an XML string
-	 * @access private
-	 */
+    /**
+     * serializes the elements for a complexType
+     *
+     * @param array $typeDef our internal representation of an XML schema type (or element)
+     * @param mixed $value a native PHP value (parameter value)
+     * @param string $ns the namespace of the type
+     * @param string $uqType the local part of the type
+     * @param string $use use for part (encoded|literal)
+     * @param bool $encodingStyle SOAP encoding style for the value (if different than the enclosing style)
+     * @return string value serialized as an XML string
+     * @access private
+     */
 	function serializeComplexTypeElements($typeDef, $value, $ns, $uqType, $use='encoded', $encodingStyle=false) {
 		$this->debug("in serializeComplexTypeElements for XML Schema type $ns:$uqType");
 		$xml = '';
+
+        if($typeDef['name'] && substr($typeDef['name'], 0, 7)=='ArrayOf' && is_array($value)) {
+            $typeName = substr($typeDef['name'], 7);
+            $type = ($typeDef['elements'] && $typeDef['elements'][$typeName]) ? $typeDef['elements'][$typeName]['type'] : null;
+            if($type) {
+                $nsx = $this->getPrefix($type);
+                $uqTypex = $this->getLocalPart($type);
+                $typeDefx = $this->getTypeDef($uqTypex, $nsx);
+                $this->debug("serialize ".count($value)." elements for type $nsx:$uqTypex");
+                foreach($value as $arrayElem) {
+                    $xml .= "<$typeName>".$this->serializeComplexTypeElements($typeDefx, $arrayElem, $nsx, $uqTypex, $use, $encodingStyle)."</$typeName>";
+                }
+                return $xml;
+            } else {
+                $this->debug("unable to get element type");
+            }
+        }
+
 		if (isset($typeDef['extensionBase'])) {
 			$nsx = $this->getPrefix($typeDef['extensionBase']);
 			$uqTypex = $this->getLocalPart($typeDef['extensionBase']);
